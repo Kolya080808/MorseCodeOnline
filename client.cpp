@@ -1,266 +1,142 @@
-/* Я попросил чатгпт мне подправить код, так что он добавил атомарную переменную, проверку ошибок, graceful shutdown.
-   Оригинальный код я так же оставил. */
-
-/* **********************************КОД ЧАТГПТ********************************** */
 #include <winsock2.h>
 #include <windows.h>
-#include <iostream>
-#include <chrono>
+#include <mmsystem.h>
+#include <thread>
 #include <atomic>
+#include <iostream>
+#include <cmath>
+#pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "ws2_32.lib")
 
-#define SERVER_IP "91.223.90.26"  // Ваш IP сервера
+#define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 1234
 #define DEFAULT_BUFLEN 512
 
-std::atomic<bool> Running(true);  // Атомарная переменная для потокобезопасности
+std::atomic<bool> Running(true);
+std::atomic<bool> Beeping(false);
+HWAVEOUT hWaveOut = NULL;
+
+void StartTone() {
+    const int sampleRate = 44100;
+    const int freq = 440;
+    static short buffer[44100];
+    for (int i = 0; i < sampleRate; ++i) {
+        buffer[i] = 32767 * sin(2 * M_PI * freq * i / sampleRate);
+    }
+
+    WAVEFORMATEX wfx = {0};
+    wfx.wFormatTag = WAVE_FORMAT_PCM;
+    wfx.nChannels = 1;
+    wfx.nSamplesPerSec = sampleRate;
+    wfx.wBitsPerSample = 16;
+    wfx.nBlockAlign = wfx.nChannels * wfx.wBitsPerSample / 8;
+    wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
+
+    if (waveOutOpen(&hWaveOut, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) return;
+
+    static WAVEHDR hdr = {0};
+    hdr.lpData = (LPSTR)buffer;
+    hdr.dwBufferLength = sizeof(buffer);
+    hdr.dwFlags = 0;
+
+    waveOutPrepareHeader(hWaveOut, &hdr, sizeof(WAVEHDR));
+    waveOutWrite(hWaveOut, &hdr, sizeof(WAVEHDR));
+}
+
+void StopTone() {
+    if (hWaveOut) {
+        waveOutReset(hWaveOut);
+        waveOutClose(hWaveOut);
+        hWaveOut = NULL;
+    }
+}
 
 SOCKET ConnectToServer() {
     WSADATA wsaData;
-    SOCKET ConnectSocket = INVALID_SOCKET;
-    struct sockaddr_in serverAddr;
+    SOCKET ConnectSocket;
+    sockaddr_in serverAddr;
 
-    // Инициализация Winsock
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "WSAStartup failed" << std::endl;
-        return INVALID_SOCKET;
-    }
-
-    // Создание сокета
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
     ConnectSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (ConnectSocket == INVALID_SOCKET) {
-        std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
-        WSACleanup();
-        return INVALID_SOCKET;
-    }
 
-    // Настройка адреса
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP);
     serverAddr.sin_port = htons(SERVER_PORT);
 
-    // Подключение к серверу
-    if (connect(ConnectSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "connect failed: " << WSAGetLastError() << std::endl;
-        closesocket(ConnectSocket);
-        WSACleanup();
-        return INVALID_SOCKET;
-    }
-
+    connect(ConnectSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
     return ConnectSocket;
 }
 
+DWORD WINAPI ToneThread(LPVOID) {
+    while (Running) {
+        if (Beeping && hWaveOut == NULL) StartTone();
+        else if (!Beeping && hWaveOut != NULL) StopTone();
+        Sleep(50);
+    }
+    StopTone();
+    return 0;
+}
+
 DWORD WINAPI ServerListener(LPVOID lpParam) {
-    SOCKET ConnectSocket = (SOCKET)lpParam;
-    char recvbuf[DEFAULT_BUFLEN];
-    int iResult;
+    SOCKET sock = (SOCKET)lpParam;
+    char buffer[DEFAULT_BUFLEN];
 
     while (Running) {
-        iResult = recv(ConnectSocket, recvbuf, DEFAULT_BUFLEN, 0);
-        if (iResult > 0) {
-            recvbuf[iResult] = '\0';
-            if (strcmp(recvbuf, "other_user_press") == 0) {
-                std::cout << "Другой пользователь нажал пробел!" << std::endl;
-                Beep(1000, 200);
-            }
-        }
-        else if (iResult == 0) {
-            std::cout << "Сервер отключился." << std::endl;
-            Running = false;
-        }
-        else {
-            std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
-            Running = false;
-        }
+        int recvSize = recv(sock, buffer, DEFAULT_BUFLEN - 1, 0);
+        if (recvSize <= 0) break;
+
+        buffer[recvSize] = '\0';
+        std::string msg(buffer);
+
+        if (msg == "space_down") Beeping = true;
+        else if (msg == "space_up") Beeping = false;
     }
+    Running = false;
     return 0;
 }
 
 int main() {
-    SOCKET ConnectSocket = ConnectToServer();
-    if (ConnectSocket == INVALID_SOCKET) {
-        return 1;
-    }
+    SOCKET sock = ConnectToServer();
+    if (sock == INVALID_SOCKET) return 1;
 
-    std::cout << "Подключено к серверу. Нажимайте ПРОБЕЛ для отправки сигнала, Q для выхода." << std::endl;
+    HANDLE hToneThread = CreateThread(NULL, 0, ToneThread, NULL, 0, NULL);
+    HANDLE hListenThread = CreateThread(NULL, 0, ServerListener, (LPVOID)sock, 0, NULL);
 
-    // Поток для приема сообщений
-    HANDLE hThread = CreateThread(NULL, 0, ServerListener, (LPVOID)ConnectSocket, 0, NULL);
-    if (hThread == NULL) {
-        std::cerr << "Ошибка создания потока: " << GetLastError() << std::endl;
-        closesocket(ConnectSocket);
-        WSACleanup();
-        return 1;
-    }
+    std::cout << "Hold SPACE to talk. Press ESC to exit.\n";
 
-    // Основной цикл
     while (Running) {
-        if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
-            auto start = std::chrono::steady_clock::now();
-            Beep(500, 100);
-
-            // Ждем отпускания клавиши
-            while (GetAsyncKeyState(VK_SPACE) & 0x8000) {
-                Sleep(10);
-            }
-
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start).count();
-
-            std::cout << "Длительность нажатия: " << duration << " мс" << std::endl;
-
-            // Отправка на сервер с проверкой ошибок
-            std::string msg = "press_duration:" + std::to_string(duration);
-            if (send(ConnectSocket, msg.c_str(), msg.size(), 0) == SOCKET_ERROR) {
-                std::cerr << "send failed: " << WSAGetLastError() << std::endl;
-                Running = false;
-            }
+        HWND foreground = GetForegroundWindow();
+        if (foreground != GetConsoleWindow()) {
+            Sleep(50);
+            continue;
         }
 
-        if (GetAsyncKeyState('Q') & 0x8000) {
-            std::cout << "Завершение работы..." << std::endl;
+        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
             Running = false;
+            break;
         }
 
+        static bool wasPressed = false;
+        bool pressed = GetAsyncKeyState(VK_SPACE) & 0x8000;
+
+        if (pressed && !wasPressed) {
+            send(sock, "space_down", 11, 0);
+        } else if (!pressed && wasPressed) {
+            send(sock, "space_up", 9, 0);
+        }
+        wasPressed = pressed;
         Sleep(10);
     }
 
-    // Корректное завершение
-    shutdown(ConnectSocket, SD_BOTH);  // Graceful shutdown
-    WaitForSingleObject(hThread, INFINITE);
-    CloseHandle(hThread);
-    closesocket(ConnectSocket);
+    shutdown(sock, SD_BOTH);
+    closesocket(sock);
     WSACleanup();
+
+    WaitForSingleObject(hToneThread, INFINITE);
+    WaitForSingleObject(hListenThread, INFINITE);
+    CloseHandle(hToneThread);
+    CloseHandle(hListenThread);
 
     return 0;
 }
 
-
-
-/* ********************************** ОРИГИНАЛЬНЫЙ КОД ********************************** */
-// #include <winsock2.h>
-// #include <windows.h>
-// #include <iostream>
-// #include <chrono>
-// #pragma comment(lib, "ws2_32.lib")
-
-// #define SERVER_IP "xxx.yyy.zzz.www" // замените на свой
-// #define SERVER_PORT 1234 // замените на свой
-// #define DEFAULT_BUFLEN 512
-
-// bool Running = true;
-
-// SOCKET ConnectToServer() {
-//     WSADATA wsaData;
-//     SOCKET ConnectSocket = INVALID_SOCKET;
-//     struct sockaddr_in serverAddr;
-
-//     // Инициализация Winsock
-//     int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-//     if (iResult != 0) {
-//         std::cerr << "WSAStartup failed: " << iResult << std::endl;
-//         return INVALID_SOCKET;
-//     }
-
-//     // сокет
-//     ConnectSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-//     if (ConnectSocket == INVALID_SOCKET) {
-//         std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
-//         WSACleanup();
-//         return INVALID_SOCKET;
-//     }
-
-//     // настройка адреса 
-//     serverAddr.sin_family = AF_INET;
-//     serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP);
-//     serverAddr.sin_port = htons(SERVER_PORT);
-
-//     // подключение
-//     iResult = connect(ConnectSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-//     if (iResult == SOCKET_ERROR) {
-//         std::cerr << "connect failed: " << WSAGetLastError() << std::endl;
-//         closesocket(ConnectSocket);
-//         WSACleanup();
-//         return INVALID_SOCKET;
-//     }
-
-//     return ConnectSocket;
-// }
-
-// DWORD WINAPI ServerListener(LPVOID lpParam) {
-//     SOCKET ConnectSocket = (SOCKET)lpParam;
-//     char recvbuf[DEFAULT_BUFLEN];
-//     int iResult;
-
-//     while (Running) {
-//         iResult = recv(ConnectSocket, recvbuf, DEFAULT_BUFLEN, 0);
-//         if (iResult > 0) {
-//             recvbuf[iResult] = '\0';
-//             if (strcmp(recvbuf, "other_user_press") == 0) {
-//                 std::cout << "Бип" << std::endl;
-//                 Beep(1000, 200); // что-то вроде "опа, человек что-то нам говорит"
-//             }
-//         } else if (iResult == 0) {
-//             std::cout << "Сервер отключился." << std::endl; // если сервер корректно вырубился
-//             Running = false;
-//         } else {
-//             std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
-//             Running = false;
-//         }
-//     }
-//     return 0;
-// }
-
-// int main() {
-//     SOCKET ConnectSocket = ConnectToServer();
-//     if (ConnectSocket == INVALID_SOCKET) {
-//         return 1;
-//     }
-
-//     std::cout << "Подключено к серверу. Нажимайте ПРОБЕЛ для отправки сигнала, Q для выхода." << std::endl;
-
-//     // Поток для приема сообщений
-//     HANDLE hThread = CreateThread(NULL, 0, ServerListener, (LPVOID)ConnectSocket, 0, NULL);
-//     if (hThread == NULL) {
-//         std::cerr << "Ошибка создания потока: " << GetLastError() << std::endl;
-//         closesocket(ConnectSocket);
-//         WSACleanup();
-//         return 1;
-//     }
-
-//     // Основной цикл
-//     while (Running) {
-//         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
-//             auto start = std::chrono::steady_clock::now();
-//             Beep(500, 100); // Сигнал при нажатии пробела
-
-//             // Ждем отпускания клавиши
-//             while (GetAsyncKeyState(VK_SPACE) & 0x8000) {
-//                 Sleep(10);
-//             }
-
-//             auto end = std::chrono::steady_clock::now();
-//             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-//             std::cout << "Длительность нажатия: " << duration << " мс" << std::endl;
-
-//             // Отправка серверу
-//             std::string msg = "press_duration:" + std::to_string(duration);
-//             send(ConnectSocket, msg.c_str(), msg.size(), 0);
-//         }
-
-//         if (GetAsyncKeyState('Q') & 0x8000) {
-//             Running = false;
-//         }
-
-//         Sleep(10); // Чтобы не нагружать CPU
-//     }
-
-//     // Завершение работы
-//     WaitForSingleObject(hThread, INFINITE);
-//     CloseHandle(hThread);
-//     closesocket(ConnectSocket);
-//     WSACleanup();
-
-//     return 0;
-// }
