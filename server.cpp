@@ -3,15 +3,17 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <ctime>
+#include <atomic>
+#include <algorithm>
 #pragma comment(lib, "ws2_32.lib")
 
-#define DEFAULT_PORT 1234 // замените на свой
+#define DEFAULT_PORT 1234
 #define DEFAULT_BUFLEN 512
 
 std::vector<SOCKET> clients;
-bool Running = true;
+std::atomic<bool> Running(true);
 
+// Функция для обработки клиента
 DWORD WINAPI HandleClient(LPVOID lpParam) {
     SOCKET clientSocket = (SOCKET)lpParam;
     char recvbuf[DEFAULT_BUFLEN];
@@ -23,35 +25,48 @@ DWORD WINAPI HandleClient(LPVOID lpParam) {
             recvbuf[iResult] = '\0';
             std::cout << "Client " << clientSocket << " sent: " << recvbuf << std::endl;
 
-            // отправляем другим клиентам уведомление о нажатии на пробел кем-то
+            // Отправляем уведомление другим клиентам
             for (SOCKET otherClient : clients) {
-                if (otherClient != clientSocket) {
+                if (otherClient != clientSocket && Running) {
                     send(otherClient, "other_user_press", 16, 0);
                 }
             }
-        } else if (iResult == 0) {
+        }
+        else if (iResult == 0) {
             std::cout << "Client " << clientSocket << " disconnected." << std::endl;
             break;
-        } else {
+        }
+        else {
             std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
             break;
         }
     }
 
-    // удаляем клиента из списка после отключения
-    for (auto it = clients.begin(); it != clients.end(); ++it) {
-        if (*it == clientSocket) {
-            clients.erase(it);
-            break;
-        }
+    // Удаляем клиента из списка
+    auto it = std::find(clients.begin(), clients.end(), clientSocket);
+    if (it != clients.end()) {
+        clients.erase(it);
     }
-
     closesocket(clientSocket);
     return 0;
 }
 
-
-// запуск
+// Поток для отслеживания нажатия клавиши Q
+DWORD WINAPI ShutdownListener(LPVOID lpParam) {
+    (void)lpParam;
+    while (Running) {
+        if (GetAsyncKeyState('Q') & 0x8000) {
+            std::cout << "\nInitiating server shutdown..." << std::endl;
+            Running = false;
+            
+            // Закрываем сокет прослушивания чтобы выйти из accept()
+            closesocket(*(SOCKET*)lpParam);
+            break;
+        }
+        Sleep(100);
+    }
+    return 0;
+}
 
 int main() {
     WSADATA wsaData;
@@ -59,13 +74,12 @@ int main() {
     struct sockaddr_in serverAddr;
 
     // Инициализация Winsock
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != 0) {
-        std::cerr << "WSAStartup failed: " << iResult << std::endl;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed" << std::endl;
         return 1;
     }
 
-    // сокет
+    // Создание сокета
     ListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (ListenSocket == INVALID_SOCKET) {
         std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
@@ -79,42 +93,59 @@ int main() {
     serverAddr.sin_port = htons(DEFAULT_PORT);
 
     // Привязка сокета
-    iResult = bind(ListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (iResult == SOCKET_ERROR) {
+    if (bind(ListenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         std::cerr << "bind failed: " << WSAGetLastError() << std::endl;
         closesocket(ListenSocket);
         WSACleanup();
         return 1;
     }
 
-    // ожидание подключений
-    iResult = listen(ListenSocket, SOMAXCONN);
-    if (iResult == SOCKET_ERROR) {
+    // Ожидание подключений
+    if (listen(ListenSocket, SOMAXCONN) == SOCKET_ERROR) {
         std::cerr << "listen failed: " << WSAGetLastError() << std::endl;
         closesocket(ListenSocket);
         WSACleanup();
         return 1;
     }
 
-    std::cout << "Server started. Waiting for connections on port " << DEFAULT_PORT << "..." << std::endl;
+    std::cout << "Server started. Press Q to shutdown..." << std::endl;
 
-    // Основной цикл (ура!)
+    // Запускаем поток для отслеживания клавиши Q
+    HANDLE hShutdownThread = CreateThread(NULL, 0, ShutdownListener, &ListenSocket, 0, NULL);
+
+    // Основной цикл
     while (Running) {
         SOCKET ClientSocket = accept(ListenSocket, NULL, NULL);
         if (ClientSocket == INVALID_SOCKET) {
-            std::cerr << "accept failed: " << WSAGetLastError() << std::endl;
+            if (Running) { // Если это не запланированное закрытие
+                std::cerr << "accept failed: " << WSAGetLastError() << std::endl;
+            }
             continue;
         }
 
         std::cout << "New client connected: " << ClientSocket << std::endl;
         clients.push_back(ClientSocket);
-
-        // Создаем поток для обработки клиента
         CreateThread(NULL, 0, HandleClient, (LPVOID)ClientSocket, 0, NULL);
     }
 
-    // Завершение работы
+    // Корректное завершение работы
+    std::cout << "Closing all connections..." << std::endl;
+
+    // Закрываем все клиентские сокеты
+    for (SOCKET s : clients) {
+        shutdown(s, SD_BOTH);
+        closesocket(s);
+    }
+    clients.clear();
+
+    // Ожидаем завершение потока shutdown listener
+    WaitForSingleObject(hShutdownThread, INFINITE);
+    CloseHandle(hShutdownThread);
+
+    // Финализация Winsock
     closesocket(ListenSocket);
     WSACleanup();
+
+    std::cout << "Server shutdown complete." << std::endl;
     return 0;
 }
