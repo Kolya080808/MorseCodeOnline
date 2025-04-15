@@ -15,6 +15,8 @@ pravda prislos' s etimi plushkami peredelivat' i cod clienta, no pofig
 #include <atomic>
 #include <cstdlib>
 #include <ctime>
+#include <cstdint>
+
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -22,6 +24,8 @@ std::mutex clientsMutex;
 std::map<int, SOCKET> clients;
 std::atomic<bool> running(true);
 std::atomic<int> activeClient(-1);
+const uint16_t PORT = 1234; // ПОМЕНЯЙТЕ НА СВОЙ ПОРТ
+
 
 void Broadcast(const std::string& msg, int senderId) {
     std::lock_guard<std::mutex> lock(clientsMutex);
@@ -78,7 +82,7 @@ int main() {
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(1234);
+    serverAddr.sin_port = htons(PORT);
 
     if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         std::cerr << "Bind failed!" << std::endl;
