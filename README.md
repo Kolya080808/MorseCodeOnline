@@ -19,14 +19,33 @@
 
 ## Как ее проверять и использовать (пока не советую так делать)?
 
-1. Скачайте код для [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/raw/refs/heads/main/server.cpp) и [клиента](https://github.com/Kolya080808/MorseCodeAutoListener/raw/refs/heads/main/client.cpp)
-2. Поменяйте порт и ip
+1. Скачайте код для [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/raw/refs/heads/main/server.cpp) и [клиента](https://github.com/Kolya080808/MorseCodeAutoListener/raw/refs/heads/main/client.cpp), так же iso [windows SDK](https://developer.microsoft.com/ru-ru/windows/downloads/windows-sdk/).
+2. Поменяйте порт и ip в сервере и клиенте
 3. На линуксе (я работаю там) надо сделать так:
 ```bash
 sudo apt update; sudo apt upgrade; sudo apt install g++-mingw-w64-x86-64 -y; x86_64-w64-mingw32-g++ server.cpp -o server.exe -lws2_32 -lwinmm -static; x86_64-w64-mingw32-g++ client.cpp -o client.exe -lwinmm -lws2_32 -static; sleep 10; clear; echo "установлено :)"; sleep 10
 ```
 4. Отправьте на сервер экзешник и запустите его
-5. Сами запустите экзешник клиента и следите за сервером: получает ли он подключение, записывает ли пробелы и так далее.
+5. Далее, если антивирус ругается на client.exe, нужно подписать скомпилированный экзешник. Сначала перенесем его в папку загрузок.
+6. Потом распакуйте windows SDK, который мы скачали раннее, и запустите установшик.
+7. Далее выберите папку загрузок и нажмите три раза далее.
+8. Затем выберите только установку signing tools, чтобы все выглядело вот так:
+![image](https://github.com/user-attachments/assets/865a7e23-26c1-4178-8a76-1480146cb001)
+9. Нажмите установить.
+10. Запустите powershell от имени администратора и введите команду `New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=MyTestCertificate" -KeyUsage DigitalSignature -CertStoreLocation "Cert:\CurrentUser\My"`, чтобы создать самописный сертификат.
+11. Зайдите в cmd, и напишите `cd C:\Program Files (x86)\Windows Kits\10\bin\version\x86`, и потом `signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /a "C:\path\to\file.exe"`. Таким образом вы подпишите исполняемый файл и антивирус ругаться не будет.
+12. Сами запустите экзешник клиента и следите за сервером: получает ли он подключение, записывает ли пробелы и так далее.
+
+Если потом надо удалить windows sdk и сертификат, это делается так:
+![image](https://github.com/user-attachments/assets/d1f8ec4f-e9a6-47ed-b80b-0e5afe50eb9f)
+![image](https://github.com/user-attachments/assets/8e1ab20f-3745-4fa9-a8a3-5716fffafb99)
+![image](https://github.com/user-attachments/assets/937b12b4-9bc3-4e6e-9ec8-b697a4f919b9) - это надо удалить
+![image](https://github.com/user-attachments/assets/f11b7e5f-7ad3-481c-9a08-e643d687da61) - это надо удалить
+
+![image](https://github.com/user-attachments/assets/00ce7c9c-51c8-44d1-b5b6-8ffe2be3c964)
+![image](https://github.com/user-attachments/assets/e7867cc5-7d9a-4794-80c0-312a49110d69)
+
+Ну и папку с установщиком.
 
 # УЧТИТЕ! СЕРВЕР НЕ БУДЕТ ЗАПУЩЕН ЕСЛИ ПОРТ ЗАНЯТ (можно проверить так: `netstat -ano | findstr :<port>`), А ТАК ЖЕ КЛИЕНТ НЕ БУДЕТ ЗАПУЩЕН ЕСЛИ НЕТ ПОДКЛЮЧЕНИЯ К СЕРВЕРУ! 
 
@@ -36,9 +55,7 @@ sudo apt update; sudo apt upgrade; sudo apt install g++-mingw-w64-x86-64 -y; x86
 
 ## Задачи
 
-- реализовать кнопку "пипипипи.." (клиент)
-- переставить кнопки с пробела на стрелочки (клиент)
-- попробовать снять ограничитель с длительности бипа на пробеле (сервер)
+пока нет.
 
 ## Стоит ли этим пользоваться?
 
