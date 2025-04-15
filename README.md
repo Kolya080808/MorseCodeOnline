@@ -37,6 +37,8 @@ sudo apt update; sudo apt upgrade; sudo apt install g++-mingw-w64-x86-64 -y; x86
 12. Сами запустите экзешник клиента и следите за сервером: получает ли он подключение, записывает ли пробелы и так далее.
 
 Если потом надо удалить windows sdk и сертификат, это делается так:
+
+
 ![image](https://github.com/user-attachments/assets/d1f8ec4f-e9a6-47ed-b80b-0e5afe50eb9f)
 ![image](https://github.com/user-attachments/assets/8e1ab20f-3745-4fa9-a8a3-5716fffafb99)
 ![image](https://github.com/user-attachments/assets/937b12b4-9bc3-4e6e-9ec8-b697a4f919b9) - это надо удалить
