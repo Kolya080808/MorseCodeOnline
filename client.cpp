@@ -119,10 +119,12 @@ DWORD WINAPI PulsingThread(LPVOID lpParam) {
     bool pipipimode = false;
 
     while (Running) {
+        // Поменяли кнопки местами
         bool leftPressed = GetAsyncKeyState(VK_LEFT) & 0x8000;
         bool rightPressed = GetAsyncKeyState(VK_RIGHT) & 0x8000;
 
-        if (rightPressed && !leftPressed) {
+        // Приоритет короткому сигналу (теперь по ЛЕВОЙ кнопке)
+        if (leftPressed && !rightPressed) {
             pipipimode = true;
             send(sock, "space_down", 11, 0);
             Sleep(15); // можете изменить значение если нужна меньшая длина гудков
@@ -145,7 +147,7 @@ int main() {
     HANDLE hListenThread = CreateThread(NULL, 0, ServerListener, (LPVOID)sock, 0, NULL);
     HANDLE hPulseThread = CreateThread(NULL, 0, PulsingThread, (LPVOID)sock, 0, NULL);
 
-    std::cout << "Use LEFT for long beep, RIGHT for pulsing beep. ESC to exit.\n";
+    std::cout << "Use LEFT for pulsing beep, RIGHT for long beep. ESC to exit.\n";
 
     bool wasLongPressed = false;
 
@@ -161,11 +163,12 @@ int main() {
             break;
         }
 
-        bool longPressed = GetAsyncKeyState(VK_LEFT) & 0x8000;
-        bool shortPressed = GetAsyncKeyState(VK_RIGHT) & 0x8000;
+        // Меняем местами кнопки
+        bool longPressed = GetAsyncKeyState(VK_RIGHT) & 0x8000;
+        bool shortPressed = GetAsyncKeyState(VK_LEFT) & 0x8000;
 
-        // Приоритет длинному сигналу
-        if (longPressed && !wasLongPressed) {
+        // Теперь приоритет короткому сигналу — длинный активируется только если короткий не нажат
+        if (!shortPressed && longPressed && !wasLongPressed) {
             send(sock, "space_down", 11, 0);
         } else if (!longPressed && wasLongPressed) {
             send(sock, "space_up", 9, 0);
@@ -189,4 +192,5 @@ int main() {
 
     return 0;
 }
+
 
