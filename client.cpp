@@ -119,12 +119,13 @@ DWORD WINAPI PulsingThread(LPVOID lpParam) {
     bool pipipimode = false;
 
     while (Running) {
-        // Поменяли кнопки местами
+        // Левая кнопка — короткий
         bool leftPressed = GetAsyncKeyState(VK_LEFT) & 0x8000;
+        // Правая кнопка — длинный
         bool rightPressed = GetAsyncKeyState(VK_RIGHT) & 0x8000;
 
-        // Приоритет короткому сигналу (теперь по ЛЕВОЙ кнопке)
-        if (leftPressed && !rightPressed) {
+        // Приоритет короткому сигналу — если нажата левая
+        if (leftPressed) {
             pipipimode = true;
             send(sock, "space_down", 11, 0);
             Sleep(15); // можете изменить значение если нужна меньшая длина гудков
@@ -147,7 +148,7 @@ int main() {
     HANDLE hListenThread = CreateThread(NULL, 0, ServerListener, (LPVOID)sock, 0, NULL);
     HANDLE hPulseThread = CreateThread(NULL, 0, PulsingThread, (LPVOID)sock, 0, NULL);
 
-    std::cout << "Use LEFT for pulsing beep, RIGHT for long beep. ESC to exit.\n";
+    std::cout << "Нажмите стрелку ВЛЕВО для короткого гудка, ВПРАВО для длинного. ESC для выхода.\n";
 
     bool wasLongPressed = false;
 
@@ -163,18 +164,18 @@ int main() {
             break;
         }
 
-        // Меняем местами кнопки
-        bool longPressed = GetAsyncKeyState(VK_RIGHT) & 0x8000;
+        // Назначения кнопок поменялись
         bool shortPressed = GetAsyncKeyState(VK_LEFT) & 0x8000;
+        bool longPressed = GetAsyncKeyState(VK_RIGHT) & 0x8000;
 
-        // Теперь приоритет короткому сигналу — длинный активируется только если короткий не нажат
-        if (!shortPressed && longPressed && !wasLongPressed) {
+        // Длинный сигнал включается только если короткий НЕ нажат
+        if (longPressed && !shortPressed && !wasLongPressed) {
             send(sock, "space_down", 11, 0);
-        } else if (!longPressed && wasLongPressed) {
+        } else if ((!longPressed || shortPressed) && wasLongPressed) {
             send(sock, "space_up", 9, 0);
         }
 
-        wasLongPressed = longPressed;
+        wasLongPressed = (longPressed && !shortPressed);
 
         Sleep(1);
     }
