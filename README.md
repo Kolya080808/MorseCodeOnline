@@ -3,10 +3,23 @@
 
 ## ДИСКЛЕЙМЕР
 
-Это тестовая разработка которая может плохо работать. Я не ручаюсь за то, чтобы все было хорошо с компьютером. Официального релиза не было, только [пре-релиз](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v0.1) (для меня это как бета-версия). Так же учтите, что есть огромная вероятность, что Microsoft Defender будет ругаться, так как экзешник не был подписан или скомпилирован в visual studio. Вирусов в нем нет, код открытый, можете проверить сами.
+Это тестовая разработка которая может плохо работать. Я не ручаюсь за то, чтобы все было хорошо с компьютером. Официального релиза не было, только второй [пре-релиз](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v0.2) (для меня это как бета-версия). Так же учтите, что есть огромная вероятность, что Microsoft Defender будет ругаться, так как экзешник не был подписан или скомпилирован в visual studio. Вирусов в нем нет, код открытый, можете проверить сами.
 
 ## Как это работает (по крайней мере как это должно работать)?
-Ты запускаешь бинарь. Он инициализирует подключение к серверу и ждет нажатий стрелочек/получения сообщения/нажатия ESC. Здесь может произойти три вещи:
+Ты запускаешь бинарь. Он инициализирует подключение к серверу и ждет нажатий стрелочек/пробела/получения сообщения/нажатия ESC. Дальше зависит от клиента:
+
+Если вы скачали [client_one_b.cpp/exe](https://github.com/Kolya080808/MorseCodeAutoListener/blob/main/code/client_one_b.cpp), здесь может произойти три вещи:
+
+1. Если ты нажал пробел:
+- код отправляет space_down на сервер
+- сам получает сообщение от него и пищит пока не получит space_up (пока вы не отпустите пробел)
+2. Если ты получил сообщение:
+- твоя программа просто издает звуковой сигнал.
+3. Если ты нажал ESC:
+- ты закроешь программу.
+
+
+Если вы скачали [client_two_b.cpp/exe](https://github.com/Kolya080808/MorseCodeAutoListener/blob/main/code/client_two_b.cpp), здесь также может произойти три вещи:
 
 1. Если ты нажал на стрелочки:
   Если на правую:
@@ -28,11 +41,11 @@
 
 ## Как это использовать?
 
-1. Скачайте код для [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/raw/refs/heads/main/server.cpp) и [клиента](https://github.com/Kolya080808/MorseCodeAutoListener/raw/refs/heads/main/client.cpp), так же iso [windows SDK](https://developer.microsoft.com/ru-ru/windows/downloads/windows-sdk/).
+1. Скачайте код для [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/blob/main/code/server.cpp) и [клиента с одной кнопкой](https://github.com/Kolya080808/MorseCodeAutoListener/blob/main/code/client_one_b.cpp)/[двумя кнопками](https://github.com/Kolya080808/MorseCodeAutoListener/blob/main/code/client_two_b.cpp), так же iso [windows SDK](https://developer.microsoft.com/ru-ru/windows/downloads/windows-sdk/).
 2. Поменяйте порт и ip в сервере и клиенте
 3. На линуксе (я работаю там) надо сделать так:
 ```bash
-sudo apt update; sudo apt upgrade; sudo apt install g++-mingw-w64-x86-64 -y; x86_64-w64-mingw32-g++ server.cpp -o server.exe -lws2_32 -lwinmm -static; x86_64-w64-mingw32-g++ client.cpp -o client.exe -lwinmm -lws2_32 -static; sleep 10; clear; echo "установлено :)"; sleep 10; clear
+sudo apt update; sudo apt upgrade; sudo apt install g++-mingw-w64-x86-64 -y; x86_64-w64-mingw32-g++ server.cpp -o server.exe -lws2_32 -lwinmm -static; x86_64-w64-mingw32-g++ client_{one/two}_b.cpp -o client.exe -lwinmm -lws2_32 -static; sleep 10; clear; echo "установлено :)"; sleep 10; clear
 ```
 4. Отправьте на сервер экзешник и запустите его
 ### Далее, если антивирус ругается на client.exe и/или server.exe, нужно подписать скомпилированный экзешник. Сначала перенесем его в папку загрузок.
@@ -65,7 +78,7 @@ Remove-Item -Path $cert.PSPath
 Ну и папку с установщиком.
 ## ДРУГОЙ СПОСОБ
 
-Скачайте на [странице релизов](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v0.1) готовый [екзешник клиента](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.1/client.exe) или [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.1/server.exe) или [все вместе](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.1/executables.zip). Они будут работать только на локальной машине.
+Скачайте на [странице релизов](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v0.1) готовый екзешник клиента с [одной](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/client_one_b.exe)/[двумя](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/client_two_b.exe) кнопками или [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/server.exe) или [все вместе](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/executables.zip). Они будут работать только на локальной машине.
 
 # УЧТИТЕ! СЕРВЕР НЕ БУДЕТ ЗАПУЩЕН ЕСЛИ ПОРТ ЗАНЯТ, А ТАК ЖЕ КЛИЕНТ НЕ БУДЕТ ЗАПУЩЕН ЕСЛИ НЕТ ПОДКЛЮЧЕНИЯ К СЕРВЕРУ!
 
