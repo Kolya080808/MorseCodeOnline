@@ -1,9 +1,9 @@
-# MorseCodeAutoListener
+# MorseCodeOnline
 Попытался по такому краткому тех заданию друга (конечно были и дополнения) написать код для сервера и клиента чтобы набирать сообщение кодом морзе когда у тебя просто есть комп на виндовс.
 
 ## ДИСКЛЕЙМЕР
 
-Это тестовая разработка которая может плохо работать. Я не ручаюсь за то, чтобы все было хорошо с компьютером. Официального релиза не было, только второй [пре-релиз](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v0.2) (для меня это как бета-версия). Так же учтите, что есть огромная вероятность, что Microsoft Defender будет ругаться, так как экзешник не был подписан или скомпилирован в visual studio. Вирусов в нем нет, код открытый, можете проверить сами.
+Это фигня может плохо работать. Официальный [релиз](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v1.0) есть, но оно может все равно работать плохо, ибо цпп я знаю плохо. Так же учтите, что есть огромная вероятность, что Microsoft Defender будет ругаться, так как экзешник не был подписан или скомпилирован в visual studio. Вирусов в нем нет, код открытый, можете проверить сами.
 
 ## Как это работает (по крайней мере как это должно работать)?
 Ты запускаешь бинарь. Он инициализирует подключение к серверу и ждет нажатий стрелочек/пробела/получения сообщения/нажатия ESC. Дальше зависит от клиента:
@@ -78,7 +78,7 @@ Remove-Item -Path $cert.PSPath
 Ну и папку с установщиком.
 ## ДРУГОЙ СПОСОБ
 
-Скачайте на [странице релизов](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v0.1) готовый екзешник клиента с [одной](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/client_one_b.exe)/[двумя](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/client_two_b.exe) кнопками или [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/server.exe) или [все вместе](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v0.2/executables.zip). Они будут работать только на локальной машине.
+Скачайте на [странице релизов](https://github.com/Kolya080808/MorseCodeAutoListener/releases/tag/v1.0) готовый екзешник клиента с [одной](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v1.0/client_one_b.exe)/[двумя](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v1.0/client_two_b.exe) кнопками или [сервера](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v1.0/server.exe) или [все вместе](https://github.com/Kolya080808/MorseCodeAutoListener/releases/download/v1.0/executables.zip). Они будут работать только на локальной машине.
 
 # УЧТИТЕ! СЕРВЕР НЕ БУДЕТ ЗАПУЩЕН ЕСЛИ ПОРТ ЗАНЯТ, А ТАК ЖЕ КЛИЕНТ НЕ БУДЕТ ЗАПУЩЕН ЕСЛИ НЕТ ПОДКЛЮЧЕНИЯ К СЕРВЕРУ!
 
@@ -90,10 +90,6 @@ netstat -ano | findstr :<port>
 ```
 
 # Итог
-## Будущие задачи
-
-Скорее всего в будущем переделаю под определенный телеграфный ключ, но это не точно
-
 
 ## Чья идея?
 
@@ -101,4 +97,5 @@ netstat -ano | findstr :<port>
 
 ## Стоит ли этим пользоваться?
 
-Вообще без понятия. Я не спец в таком :)
+Вообще без понятия. Я хоть и знаю азбуку морзе, но не спец в таком :)
+Я попытался, мне было нормально как с двумя, так и с одной кнопкой. Так что зависит от вас, я делал под себя.
